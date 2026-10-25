@@ -1,0 +1,50 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3
+cachedir: .pytest_cache
+metadata: {'Python': '3.12.14', 'Platform': 'Linux-6.18.55-x86_64-with-glibc2.39', 'Packages': {'pytest': '9.1.1', 'pluggy': '1.7.0'}, 'Plugins': {'html': '4.2.0', 'metadata': '3.1.1'}}
+rootdir: /workspace/scratch/3a54c800e4c9/tree_test_package
+plugins: html-4.2.0, metadata-3.1.1
+collecting ... collected 38 items
+
+test_tree_project.py::test_pairing_recursive_and_annotations_excluded PASSED [  2%]
+test_tree_project.py::test_pairing_skips_duplicates_and_missing_counterpart PASSED [  5%]
+test_tree_project.py::test_load_normalises_rgb_and_marks_missing_depth PASSED [  7%]
+test_tree_project.py::test_load_accepts_equal_channel_depth PASSED       [ 10%]
+test_tree_project.py::test_load_rejects_unsupported_depth[colour] PASSED [ 13%]
+test_tree_project.py::test_load_rejects_unsupported_depth[shape] PASSED  [ 15%]
+test_tree_project.py::test_regression_recovers_analytical_coefficients[30-10] PASSED [ 18%]
+test_tree_project.py::test_regression_recovers_analytical_coefficients[100--20] PASSED [ 21%]
+test_tree_project.py::test_regression_recovers_analytical_coefficients[50-0] PASSED [ 23%]
+test_tree_project.py::test_regression_ignores_narrow_trunk_in_row_medians PASSED [ 26%]
+test_tree_project.py::test_regression_records_insufficient_background PASSED [ 28%]
+test_tree_project.py::test_depth_extraction_recovers_manufactured_trunk PASSED [ 31%]
+test_tree_project.py::test_cached_model_matches_uncached_extraction PASSED [ 34%]
+test_tree_project.py::test_reversed_depth_encoding_with_matching_direction PASSED [ 36%]
+test_tree_project.py::test_all_missing_depth_returns_empty PASSED        [ 39%]
+test_tree_project.py::test_invalid_segmentation_settings_raise[DEPTH_DIRECTION-0] PASSED [ 42%]
+test_tree_project.py::test_invalid_segmentation_settings_raise[SEED_BOX-value1] PASSED [ 44%]
+test_tree_project.py::test_negative_depth_contrast_rejected PASSED       [ 47%]
+test_tree_project.py::test_seed_without_overlap_returns_empty PASSED     [ 50%]
+test_tree_project.py::test_baseline_classifies_known_colours PASSED      [ 52%]
+test_tree_project.py::test_roi_preserves_coordinates PASSED              [ 55%]
+test_tree_project.py::test_invalid_roi_raises PASSED                     [ 57%]
+test_tree_project.py::test_skeleton_preserves_connected_structure_and_is_idempotent PASSED [ 60%]
+test_tree_project.py::test_empty_skeleton_input_returns_empty PASSED     [ 63%]
+test_tree_project.py::test_gt_not_configured_returns_none PASSED         [ 65%]
+test_tree_project.py::test_valid_gt_loads_as_boolean PASSED              [ 68%]
+test_tree_project.py::test_invalid_gt_rejected[empty] PASSED             [ 71%]
+test_tree_project.py::test_invalid_gt_rejected[nonbinary] PASSED         [ 73%]
+test_tree_project.py::test_invalid_gt_rejected[shape] PASSED             [ 76%]
+test_tree_project.py::test_invalid_gt_rejected[colour] PASSED            [ 78%]
+test_tree_project.py::test_metrics_perfect_match_and_missing_reference PASSED [ 81%]
+test_tree_project.py::test_metrics_empty_prediction PASSED               [ 84%]
+test_tree_project.py::test_metric_tolerance_boundary PASSED              [ 86%]
+test_tree_project.py::test_csv_preserves_missing_scores PASSED           [ 89%]
+test_tree_project.py::test_builtin_verification_passes PASSED            [ 92%]
+test_tree_project.py::test_main_cancelled_input_does_not_process PASSED  [ 94%]
+test_tree_project.py::test_main_cancelled_results_creates_no_output PASSED [ 97%]
+test_tree_project.py::test_main_end_to_end_outputs_and_test_split PASSED [100%]
+
+- generated xml file: /workspace/scratch/3a54c800e4c9/tree_test_package/test_results.xml -
+- Generated html report: file:///workspace/scratch/3a54c800e4c9/tree_test_package/test_report.html -
+============================== 38 passed in 2.81s ==============================
