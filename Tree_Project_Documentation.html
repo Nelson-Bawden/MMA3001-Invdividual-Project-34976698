@@ -1,0 +1,370 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tree Project Python Source Documentation</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:#23303d;background:#fff;font:16px/1.65 system-ui,Segoe UI,sans-serif}aside{position:fixed;inset:0 auto 0 0;width:260px;overflow:auto;background:#f3f6f8;border-right:1px solid #d8e0e7;padding:24px}aside strong{display:block;margin-bottom:16px}nav a{display:block;padding:4px 0;color:#284b67;text-decoration:none;font-size:14px}nav a:hover{text-decoration:underline}main{margin-left:260px;padding:40px 48px;max-width:1220px}h1{font-size:34px;line-height:1.2;margin:12px 0}h2{font-size:24px;margin-top:0}h3{font-size:19px}h4{margin:20px 0 4px}section{padding:32px 0;border-bottom:1px solid #d8e0e7;scroll-margin-top:20px}header p{color:#546779}.eyebrow{font-size:13px;text-transform:uppercase;letter-spacing:.12em}code,pre{font-family:Consolas,monospace}code{font-size:.9em}pre{padding:16px;background:#f3f6f8;border:1px solid #e1e7ed;overflow:auto;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}.signature{font-size:15px;color:#174669}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0}th,td{border:1px solid #d5dfe7;padding:10px 12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#edf2f6}details{margin-top:20px}summary{cursor:pointer;color:#284b67;font-weight:600}a{color:#174f7b}@media(max-width:800px){aside{position:static;width:auto;max-height:270px}main{margin:0;padding:24px}h1{font-size:28px}}@media print{aside{display:none}main{margin:0;padding:0;max-width:none}details{display:none}section{break-inside:auto}h2,h3,h4{break-after:avoid}pre,table{font-size:10px}a{color:inherit}}</style></head><body><aside><strong>Tree Project<br>Source documentation</strong><nav aria-label="Contents"><a href="#overview">Overview</a><a href="#run">Install and run</a><a href="#workflow">Workflow</a><a href="#settings">Settings</a><a href="#outputs">Outputs and metrics</a><a href="#verification">Verification</a><a href="#find_pairs">find_pairs</a><a href="#load_images">load_images</a><a href="#segment_tree">segment_tree</a><a href="#apply_roi">apply_roi</a><a href="#fit_depth_background">fit_depth_background</a><a href="#depth_tree">depth_tree</a><a href="#skeletonise">skeletonise</a><a href="#read_ground_truth">read_ground_truth</a><a href="#compare_with_gt">compare_with_gt</a><a href="#save_figures">save_figures</a><a href="#write_table">write_table</a><a href="#check_calculations">check_calculations</a><a href="#choose_folder">choose_folder</a><a href="#main">main</a><a href="#maintenance">Maintenance</a></nav></aside><main><header><p class="eyebrow">MMA3001 · Dataset 1</p><h1>Tree Project Python documentation</h1><p>2D skeleton extraction with least-squares background regression</p></header><section id="overview"><h2>Overview</h2><p>This reference documents the uploaded <code>Tree_Project_2D(1).py</code> source. It extracts two-dimensional foreground masks and skeletons from paired RGB and grayscale depth observations. The main numerical method is least-squares linear regression of background row medians.</p><p>Coordinates are image pixels; depth values are raw intensities. The program assumes RGB/depth registration and does not compute calibration, 3D geometry, cross-season tree matching or robot clearance.</p><p>The descriptions below were prepared by inspecting the implementation. Signatures, default settings and source excerpts are extracted from that exact file; the Python file has not been modified.</p></section><section id="run"><h2>Install and run</h2><p>Use a desktop Python environment with NumPy, SciPy, Pillow, Matplotlib and Tkinter. Install packages into the same interpreter used to run the script.</p><pre>python -m pip install numpy scipy pillow matplotlib
+python "Tree_Project_2D(1).py"</pre><ol><li>Select the photo folder or the TreeID parent. Subdirectories are searched.</li><li>Select an existing destination folder. A new timestamped subfolder is created.</li><li>Watch the terminal progress and inspect comparisons and CSV files.</li></ol><p>Cancel either folder dialog to stop before processing. For repository use, you may rename the source to <code>Tree_Project_2D.py</code> and use that filename in commands. Tkinter must be available in your Python installation; it is not supplied by the pip command above.</p><p>Example accepted pair:</p><pre>R10N07_Winter_RGB-12-10-12.png
+R10N07_Winter_D-12-10-12.png</pre><p>Keep the supplied dataset separate from source-code licensing and follow its redistribution terms.</p></section><section id="workflow"><h2>Processing workflow</h2><ol><li><code>find_pairs → load_images</code>: exact filename pairing and shape checks.</li><li><code>segment_tree → skeletonise</code>: colour baseline.</li><li><code>fit_depth_background → depth_tree → skeletonise</code>: regression method.</li><li><code>read_ground_truth → compare_with_gt</code>: optional reference scoring.</li><li><code>save_figures / write_table</code>: comparisons and progress exports.</li><li>Sweep thresholds on eligible development observations; calculate tree-weighted summaries.</li></ol><h3>Regression equations</h3><pre>y(v) = 2v/(H−1) − 1
+B(v) = b0 + b1 y(v)
+b = argmin ||A b − m||²,  A[row] = [1, y(v)]
+margin = contrast × (percentile95(depth) − percentile5(depth))
+foreground on dense rows: direction × (D − B) &gt; margin</pre><p>Here m contains valid-intensity row medians. Sparse rows retain valid depth before cleanup. This is an empirical model; dense leaves, fruit, supports and background clutter can be selected as foreground. Baseline and regression differ in post-processing as well as their initial selection rule, so their comparison is a whole-pipeline comparison.</p></section><section id="settings"><h2>Configuration reference</h2><div class="tablewrap"><table><thead><tr><th>Setting</th><th>Uploaded default</th><th>Meaning</th></tr></thead><tbody><tr><td>MAX_PAIRS</td><td>None</td><td>Maximum exact pairs to process. None means all. Use a positive integer for a trial run.</td></tr><tr><td>FIRST_PREVIEW</td><td>&#x27;R10N07_Winter_12-10-12&#x27;</td><td>Observation sorted first if present; does not filter other observations.</td></tr><tr><td>MAX_FIGURE_PAIRS</td><td>None</td><td>Number of observations for which both comparison figures are saved; None means all. Does not limit numeric processing.</td></tr><tr><td>SENSITIVITY_LIMIT</td><td>20</td><td>Maximum development observations swept, in processing order; 0 disables. This is not a random or season-balanced sample.</td></tr><tr><td>SAVE_MASK_IMAGES</td><td>False</td><td>Save optional foreground and skeleton PNGs in masks/.</td></tr><tr><td>INVALID_DEPTH_VALUES</td><td>[0]</td><td>Raw codes treated as missing. Confirm against dataset metadata.</td></tr><tr><td>ROI</td><td>None</td><td>None or integer (left,top,right,bottom), applied to both pipelines.</td></tr><tr><td>GREEN_THRESHOLD</td><td>0.08</td><td>Excess-green upper bound for the baseline.</td></tr><tr><td>DEPTH_CONTRAST</td><td>0.1</td><td>Main residual threshold as fraction of the valid depth percentile range.</td></tr><tr><td>DEPTH_DIRECTION</td><td>1</td><td>Must be +1 or −1: sign of foreground residual. Not a physical distance calibration.</td></tr><tr><td>DENSE_ROW_FRACTION</td><td>0.4</td><td>Finite-pixel row fraction required for background sampling; strict greater-than test.</td></tr><tr><td>SEED_BOX</td><td>(0.35, 0.55, 0.65, 0.88)</td><td>Normalised (x0,y0,x1,y1) rectangle used to select the lower-trunk component.</td></tr><tr><td>SENSITIVITY_CONTRASTS</td><td>[0.06, 0.1, 0.14, 0.18]</td><td>Threshold fractions tested on development observations with a cached regression fit.</td></tr><tr><td>SKELETON_TOLERANCE</td><td>3</td><td>Euclidean pixel tolerance used for reference-skeleton matching.</td></tr><tr><td>GT_FILES</td><td>{}</td><td>Mapping observation names to binary-mask paths. Empty means no real-image GT scoring.</td></tr><tr><td>TEST_TREES</td><td>set()</td><td>Set of physical tree IDs held out from threshold sweeps. Empty means all observations are development.</td></tr></tbody></table></div><p>Edit settings near the top of the Python file. No command-line settings parser is implemented. Use string paths in GT_FILES so settings.json remains JSON-serialisable.</p></section><section id="outputs"><h2>Output files and metrics</h2><div class="tablewrap"><table><thead><tr><th>Output</th><th>Meaning and creation condition</th></tr></thead><tbody><tr><td>comparisons/</td><td>Two three-panel PNGs per plotted observation: &lt;name&gt;_baseline.png and &lt;name&gt;_regression_depth.png.</td></tr><tr><td>masks/</td><td>Only if SAVE_MASK_IMAGES is True; binary mask and skeleton PNGs for each method.</td></tr><tr><td>settings.json</td><td>Selected settings and input path. Does not capture package versions, hardware or source commit.</td></tr><tr><td>checks.txt</td><td>Success text from check_calculations. If checks fail, execution stops before the normal processing loop.</td></tr><tr><td>results.csv</td><td>Per observation/method: tree, observation, season, split, method, time_s, skeleton_pixels, skeleton_pixels_with_depth, depth_coverage, iou, precision, recall, f1.</td></tr><tr><td>regression_models.csv</td><td>Per fitted/attempted model diagnostics; written at successful per-pair checkpoints. No unconditional final rewrite in this version.</td></tr><tr><td>sensitivity.csv</td><td>Development threshold sweeps: tree, observation, depth_contrast, foreground_pixels, skeleton_pixels, time_s and GT metrics. Written at normal completion if records exist.</td></tr><tr><td>summary.csv</td><td>split, method, metric, trees, mean. First average frames within each tree, then average those tree values; covers IoU, F1, time and depth coverage.</td></tr><tr><td>errors.csv</td><td>observation and error for caught per-observation failures; only created when records exist and execution reaches final export.</td></tr><tr><td>READ_RESULTS.txt</td><td>Interpretation notes and limitations at normal completion.</td></tr></tbody></table></div><h3>Metric meanings</h3><ul><li><b>time_s:</b> main results include fitting, mask extraction, thinning and depth-coverage counting; exclude loading, GT scoring and plotting. Sensitivity timings exclude the cached fit.</li><li><b>skeleton_pixels:</b> count, not physical branch length.</li><li><b>depth_coverage:</b> skeleton pixels with finite depth divided by skeleton pixels; zero for an empty skeleton. This is not accuracy.</li><li><b>IoU:</b> foreground intersection divided by foreground union with the reference.</li><li><b>Precision / recall:</b> bidirectional nearest-reference-skeleton agreement within the configured pixel tolerance.</li><li><b>F1:</b> harmonic mean of precision and recall; zero when their sum is zero.</li></ul><h3>Regression diagnostics</h3><p><code>fit_status, fit_rows, intercept, slope, background_fit_rmse, fitted_row_fraction, sparse_valid_fraction</code>. RMSE is measured against sampled row medians in raw intensity units. It is not skeleton error. During insufficient-data fallback, coefficients and RMSE are None; fitted_row_fraction still reports the initially dense fraction, although the returned application mask is all false.</p><p>CSV files are only written for nonempty record lists. Processing is not transactional: a later failure can leave an earlier method’s result for an observation. Review errors and incomplete method pairs before comparing summaries. Interrupted runs may lack sensitivity/error/summary exports; there is no automatic resume feature.</p></section><section id="verification"><h2>Verification and known limits</h2><p>To run the built-in checks without launching folder dialogs (using a filename suitable for import):</p><pre>python -c "import Tree_Project_2D as t; print(t.check_calculations())"</pre><p>Rename the source accordingly for this command. Checks verify idealised numerical behaviour, not real-image segmentation accuracy. Do not use Python’s -O option. Configure real reference masks and held-out tree IDs before claiming accuracy or generalisation.</p><p>Missing or ambiguous captures are printed during discovery, not included in errors.csv. Only ValueError and OSError are caught within the observation loop. Setup failures and other exceptions can terminate a run. Summer leaves and fruit can obscure wood and create misleading skeleton branches. The seed rule assumes a lower-centre trunk.</p><p>Function signatures below are exact; documented array types are caller contracts, not type annotations or comprehensive runtime validation. Empty arrays and unusual channel layouts are outside the normal workflow.</p></section><section id="find_pairs"><h2>find_pairs</h2><p>Match files by tree, season and capture time.</p><pre class="signature">find_pairs(folder)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>folder</td><td>str or Path</td><td>Root directory searched recursively.</td></tr></tbody></table></div><h4>Returns</h4><p>list[dict]: each record contains name, tree, season, rgb and depth. Paths are pathlib.Path objects.</p><h4>Behaviour and side effects</h4><p>Prints skipped ambiguous or incomplete captures. No image loading or geometric registration. Accepts .png, .tif and .tiff; excludes paths with GT/ground truth/annotation labels. Capture-time strings must match exactly, including zero padding.</p><h4>Exceptions and preconditions</h4><p>Filesystem errors may propagate. Nonmatching names are ignored.</p><h4>Example</h4><pre>pairs = find_pairs(Path(&quot;TreeID&quot;) / &quot;Dataset&quot;)</pre><details><summary>View exact source · lines 40–63</summary><pre><code>def find_pairs(folder):
+    &quot;&quot;&quot;Find exact RGB/D pairs; report missing or ambiguous captures.&quot;&quot;&quot;
+    pattern = re.compile(r&#x27;(R\d+[A-Za-z]+\d+)_(\w+)_(RGB|D)-(\d+-\d+-\d+)$&#x27;, re.I)
+    groups = {}
+    for path in sorted(Path(folder).rglob(&#x27;*&#x27;)):
+        if path.suffix.lower() not in {&#x27;.png&#x27;, &#x27;.tif&#x27;, &#x27;.tiff&#x27;}:
+            continue
+        # Keep annotations separate from inputs, even if filenames are similar.
+        if any(re.search(r&#x27;(^|[^a-z])(gt|ground.?truth|annotations?)([^a-z]|$)&#x27;,
+                         part, re.I) for part in path.relative_to(folder).parts):
+            continue
+        match = pattern.fullmatch(path.stem)
+        if match:
+            tree, season, kind, stamp = match.groups()
+            key = (tree.upper(), season.capitalize(), stamp)
+            groups.setdefault(key, {}).setdefault(kind.upper(), []).append(path)
+    pairs = []
+    for (tree, season, stamp), files in groups.items():
+        if len(files.get(&#x27;RGB&#x27;, [])) == 1 and len(files.get(&#x27;D&#x27;, [])) == 1:
+            pairs.append(dict(name=f&#x27;{tree}_{season}_{stamp}&#x27;, tree=tree,
+                              season=season, rgb=files[&#x27;RGB&#x27;][0], depth=files[&#x27;D&#x27;][0]))
+        else:
+            print(&#x27;Skipped unmatched/ambiguous frame:&#x27;, tree, season, stamp)
+    return pairs</code></pre></details></section><section id="load_images"><h2>load_images</h2><p>Read one RGB/depth pair and mark missing depth.</p><pre class="signature">load_images(pair)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>pair</td><td>dict</td><td>Record from find_pairs with rgb and depth paths.</td></tr></tbody></table></div><h4>Returns</h4><p>(rgb, depth): float RGB array (H,W,3) in [0,1] and float depth array (H,W) with invalid values replaced by NaN.</p><h4>Behaviour and side effects</h4><p>Uses INVALID_DEPTH_VALUES. Equal-channel depth is accepted; alpha, if present, is not used. Equal dimensions are checked, but existing pixel alignment is assumed.</p><h4>Exceptions and preconditions</h4><p>ValueError for colourised depth or mismatched dimensions; image/filesystem errors can propagate. Unusual channel layouts are outside the supported contract.</p><h4>Example</h4><pre>rgb, depth = load_images(pairs[0])</pre><details><summary>View exact source · lines 66–80</summary><pre><code>def load_images(pair):
+    &quot;&quot;&quot;Load RGB in [0,1] and depth; missing depth becomes NaN.&quot;&quot;&quot;
+    rgb = np.asarray(Image.open(pair[&#x27;rgb&#x27;]).convert(&#x27;RGB&#x27;)) / 255.0
+    raw = np.asarray(Image.open(pair[&#x27;depth&#x27;]))
+    if raw.ndim == 3:
+        if not (np.array_equal(raw[:, :, 0], raw[:, :, 1]) and
+                np.array_equal(raw[:, :, 0], raw[:, :, 2])):
+            raise ValueError(&#x27;Expected a greyscale depth image, not a colourised display.&#x27;)
+        raw = raw[:, :, 0]
+    if raw.shape != rgb.shape[:2]:
+        raise ValueError(&#x27;RGB and depth must be aligned and have the same size.&#x27;)
+    valid = np.isfinite(raw) &amp; ~np.isin(raw, INVALID_DEPTH_VALUES)
+    depth = raw.astype(float)
+    depth[~valid] = np.nan
+    return rgb, depth</code></pre></details></section><section id="segment_tree"><h2>segment_tree</h2><p>Produce the colour-only baseline mask.</p><pre class="signature">segment_tree(rgb)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>rgb</td><td>float ndarray (H,W,3)</td><td>Normalised RGB values in [0,1].</td></tr></tbody></table></div><h4>Returns</h4><p>Boolean ndarray (H,W): selected foreground pixels.</p><h4>Behaviour and side effects</h4><p>Selects 2G−R−B &lt; GREEN_THRESHOLD and 0.03 &lt; mean brightness &lt; 0.72. Calls apply_roi. It does not perform regression, closing or seed-based component selection.</p><h4>Exceptions and preconditions</h4><p>ROI errors propagate; input shape and scale are caller responsibilities.</p><h4>Example</h4><pre>baseline = segment_tree(rgb)</pre><details><summary>View exact source · lines 84–90</summary><pre><code>def segment_tree(rgb):
+    &quot;&quot;&quot;Original colour-only baseline; may retain background grass and wires.&quot;&quot;&quot;
+    red, green, blue = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    brightness = rgb.mean(axis=2)
+    mask = (2 * green - red - blue &lt; GREEN_THRESHOLD)
+    mask &amp;= (brightness &gt; .03) &amp; (brightness &lt; .72)
+    return apply_roi(mask)</code></pre></details></section><section id="apply_roi"><h2>apply_roi</h2><p>Restrict a mask to an optional rectangle without changing its dimensions.</p><pre class="signature">apply_roi(mask)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>mask</td><td>ndarray (H,W)</td><td>Typically a Boolean foreground mask.</td></tr></tbody></table></div><h4>Returns</h4><p>Same object when ROI is None; otherwise a new array with zeros outside the rectangle.</p><h4>Behaviour and side effects</h4><p>ROI is (left, top, right, bottom) in integer pixels; right/bottom are exclusive slicing boundaries.</p><h4>Exceptions and preconditions</h4><p>ValueError if bounds lie outside the image or are not ordered; noninteger slice values can raise TypeError.</p><h4>Example</h4><pre>cropped_mask = apply_roi(baseline)</pre><details><summary>View exact source · lines 93–102</summary><pre><code>def apply_roi(mask):
+    &quot;&quot;&quot;Apply an optional rectangle without resizing or shifting the image.&quot;&quot;&quot;
+    if ROI is None:
+        return mask
+    left, top, right, bottom = ROI
+    if not (0 &lt;= left &lt; right &lt;= mask.shape[1] and 0 &lt;= top &lt; bottom &lt;= mask.shape[0]):
+        raise ValueError(&#x27;ROI is outside the image.&#x27;)
+    cropped = np.zeros_like(mask)
+    cropped[top:bottom, left:right] = mask[top:bottom, left:right]
+    return cropped</code></pre></details></section><section id="fit_depth_background"><h2>fit_depth_background</h2><p>Fit the main Topic 5.1 linear-regression background model.</p><pre class="signature">fit_depth_background(depth)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>depth</td><td>float ndarray (H,W)</td><td>Raw depth intensities; invalid entries are NaN. Use nonempty images.</td></tr></tbody></table></div><h4>Returns</h4><p>(background, dense_rows, info): float array (H,), Boolean array (H,), and diagnostics dictionary.</p><h4>Behaviour and side effects</h4><p>Dense means finite-pixel fraction &gt; DENSE_ROW_FRACTION. At least three dense rows are required. Fit row medians against [1,y] with y in [−1,1] using numpy.linalg.lstsq. Each row has equal weight. Insufficient data returns zero background, an all-false application mask and fit_status=insufficient_dense_rows. Otherwise fit_status=fitted. See diagnostics below.</p><h4>Exceptions and preconditions</h4><p>ValueError for rank other than two; numpy.linalg.LinAlgError can propagate if the solver fails. No empirical uncertainty interval is calculated.</p><h4>Example</h4><pre>model = fit_depth_background(depth)
+print(model[2][&quot;background_fit_rmse&quot;])</pre><details><summary>View exact source · lines 105–129</summary><pre><code>def fit_depth_background(depth):
+    valid = np.isfinite(depth)
+    dense = valid.mean(axis=1) &gt; DENSE_ROW_FRACTION
+    rows = np.flatnonzero(dense)
+    background = np.zeros(depth.shape[0])
+    info = dict(fit_status=&#x27;insufficient_dense_rows&#x27;, fit_rows=len(rows),
+                intercept=None, slope=None, background_fit_rmse=None,
+                fitted_row_fraction=float(dense.mean()),
+                sparse_valid_fraction=float(np.count_nonzero(valid &amp; ~dense[:, None]) /
+                                            max(np.count_nonzero(valid), 1)))
+    if len(rows) &lt; 3:
+        # Do not silently claim that regression ran on insufficient data.
+        return background, np.zeros_like(dense), info
+    y = np.linspace(-1., 1., depth.shape[0])
+    samples = np.array([np.median(depth[row, valid[row]]) for row in rows])
+    A = np.column_stack((np.ones(len(rows)), y[rows]))
+    coefficients, _, rank, _ = np.linalg.lstsq(A, samples, rcond=None)
+    if rank != 2:
+        raise ValueError(&#x27;Background regression is rank deficient.&#x27;)
+    background = coefficients[0] + coefficients[1] * y
+    residual = samples - background[rows]
+    info.update(fit_status=&#x27;fitted&#x27;, intercept=float(coefficients[0]),
+                slope=float(coefficients[1]),
+                background_fit_rmse=float(np.sqrt(np.mean(residual**2))))
+    return background, dense, info</code></pre></details></section><section id="depth_tree"><h2>depth_tree</h2><p>Extract foreground using regression residuals and trunk connectivity.</p><pre class="signature">depth_tree(depth, contrast=0.1, model=None)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>depth</td><td>float ndarray (H,W)</td><td>Depth intensities with NaN for missing values.</td></tr><tr><td>contrast</td><td>float, default 0.10</td><td>Nonnegative fraction of the 5th–95th percentile valid-depth range.</td></tr><tr><td>model</td><td>tuple or None, default None</td><td>Cached fit_depth_background result for this exact depth image; None fits internally.</td></tr></tbody></table></div><h4>Returns</h4><p>Boolean ndarray (H,W) containing the chosen component, or an empty mask.</p><h4>Behaviour and side effects</h4><p>Dense rows retain signed residuals above the contrast margin; sparse rows retain valid pixels. Then one binary-closing iteration, optional ROI, 8-connected labelling and maximum SEED_BOX overlap. Closing can create foreground at originally invalid pixels. Ties use the first maximum label. All-missing depth returns immediately; insufficient regression samples use valid-depth fallback before cleanup.</p><h4>Exceptions and preconditions</h4><p>ValueError for invalid DEPTH_DIRECTION, negative contrast or invalid seed bounds when those checks are reached. ROI/solver errors propagate. Cached-model shape and provenance are not validated.</p><h4>Example</h4><pre>mask = depth_tree(depth, contrast=DEPTH_CONTRAST, model=model)</pre><details><summary>View exact source · lines 132–165</summary><pre><code>def depth_tree(depth, contrast=0.10, model=None):
+    &quot;&quot;&quot;Use depth contrast and trunk connectivity to remove much of the background.
+    1. Ignore missing depth.
+    2. Use least-squares linear regression to estimate background intensity
+       from the median depths of densely observed rows.
+    3. Retain pixels sufficiently different from that background. Sparse rows
+       retain valid observations without attempting a ground estimate.
+    4. Close one-pixel gaps and retain the component most present in SEED_BOX.
+    &quot;&quot;&quot;
+    valid = np.isfinite(depth)
+    if not valid.any():
+        return np.zeros(depth.shape, dtype=bool)
+    if DEPTH_DIRECTION not in [-1, 1] or contrast &lt; 0:
+        raise ValueError(&#x27;Use DEPTH_DIRECTION +1/-1 and nonnegative contrast.&#x27;)
+    low, high = np.percentile(depth[valid], [5, 95])
+    margin = contrast * (high - low)
+    background, dense_rows, _ = fit_depth_background(depth) if model is None else model
+    difference = DEPTH_DIRECTION * (depth - background[:, None])
+    mask = valid &amp; (~dense_rows[:, None] | (difference &gt; margin))
+    # A small closing joins one-pixel gaps; it does not recover hidden branches.
+    mask = apply_roi(ndimage.binary_closing(mask, iterations=1))
+    labels, count = ndimage.label(mask, structure=np.ones((3, 3)))
+    if count == 0:
+        return np.zeros(depth.shape, dtype=bool)
+    height, width = depth.shape
+    x0, y0, x1, y1 = SEED_BOX
+    if not (0 &lt;= x0 &lt; x1 &lt;= 1 and 0 &lt;= y0 &lt; y1 &lt;= 1):
+        raise ValueError(&#x27;SEED_BOX must be normalised coordinates in [0,1].&#x27;)
+    seed = labels[int(y0*height):int(y1*height), int(x0*width):int(x1*width)]
+    overlaps = np.bincount(seed.ravel(), minlength=count+1)
+    overlaps[0] = 0
+    if overlaps.max() == 0:
+        return np.zeros(depth.shape, dtype=bool)  # Flag failure instead of guessing another tree.
+    return labels == overlaps.argmax()</code></pre></details></section><section id="skeletonise"><h2>skeletonise</h2><p>Thin a binary foreground region using two-substep Zhang–Suen rules.</p><pre class="signature">skeletonise(mask)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>mask</td><td>array-like ndarray (H,W)</td><td>Foreground array; converted to Boolean internally.</td></tr></tbody></table></div><h4>Returns</h4><p>Boolean ndarray (H,W) with a thinned centreline.</p><h4>Behaviour and side effects</h4><p>Pads the input, scans eight neighbours, removes eligible boundary pixels and stops when both substeps remove zero pixels. Does not modify the original mask. No maximum-iteration setting. Thinning cannot repair incorrect segmentation or infer hidden branches.</p><h4>Exceptions and preconditions</h4><p>No custom exceptions; unsupported dimensions/types can raise NumPy errors.</p><h4>Example</h4><pre>skeleton = skeletonise(mask)</pre><details><summary>View exact source · lines 168–194</summary><pre><code>def skeletonise(mask):
+    &quot;&quot;&quot;Thin a binary shape to a centreline using the Zhang-Suen method.
+
+    Each pass removes eligible boundary pixels while retaining connectivity.
+    Stop when neither of the two substeps removes another pixel.
+    &quot;&quot;&quot;
+    image = np.pad(mask.astype(bool), 1)
+    while True:
+        removed = 0
+        for step in [0, 1]:
+            neighbours = [image[:-2, 1:-1], image[:-2, 2:], image[1:-1, 2:],
+                          image[2:, 2:], image[2:, 1:-1], image[2:, :-2],
+                          image[1:-1, :-2], image[:-2, :-2]]
+            number = sum(p.astype(np.uint8) for p in neighbours)
+            changes = sum((~neighbours[i] &amp; neighbours[(i + 1) % 8]).astype(np.uint8)
+                          for i in range(8))
+            north, east, south, west = [neighbours[i] for i in [0, 2, 4, 6]]
+            if step == 0:
+                protected = (north &amp; east &amp; south) | (east &amp; south &amp; west)
+            else:
+                protected = (north &amp; east &amp; west) | (north &amp; south &amp; west)
+            delete = image[1:-1, 1:-1] &amp; (number &gt;= 2) &amp; (number &lt;= 6)
+            delete &amp;= (changes == 1) &amp; ~protected
+            removed += int(delete.sum())
+            image[1:-1, 1:-1][delete] = False
+        if removed == 0:
+            return image[1:-1, 1:-1]</code></pre></details></section><section id="read_ground_truth"><h2>read_ground_truth</h2><p>Read an explicitly configured binary annotation.</p><pre class="signature">read_ground_truth(name, shape)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>name</td><td>str</td><td>Observation name used as a GT_FILES key.</td></tr><tr><td>shape</td><td>tuple[int,int]</td><td>Required (H,W), matching the depth/RGB image.</td></tr></tbody></table></div><h4>Returns</h4><p>Boolean reference mask, or None when name is absent from GT_FILES.</p><h4>Behaviour and side effects</h4><p>Accepts intensity values drawn from {0,1,255}, with at least one foreground pixel. RGB channels, if present, must be equal. No annotation discovery, spreadsheet parsing or coordinate conversion.</p><h4>Exceptions and preconditions</h4><p>ValueError for coloured, wrong-sized, nonbinary or empty annotations; file/image errors propagate.</p><h4>Example</h4><pre>gt = read_ground_truth(pairs[0][&quot;name&quot;], depth.shape)</pre><details><summary>View exact source · lines 198–212</summary><pre><code>def read_ground_truth(name, shape):
+    &quot;&quot;&quot;Read a declared aligned binary mask; never mistake depth for GT.&quot;&quot;&quot;
+    if name not in GT_FILES:
+        return None
+    gt = np.asarray(Image.open(GT_FILES[name]))
+    if gt.ndim == 3:
+        if not (np.array_equal(gt[:, :, 0], gt[:, :, 1]) and
+                np.array_equal(gt[:, :, 0], gt[:, :, 2])):
+            raise ValueError(&#x27;GT must be binary, not a coloured annotation overlay.&#x27;)
+        gt = gt[:, :, 0]
+    if gt.shape != shape or not set(np.unique(gt)).issubset({0, 1, 255}):
+        raise ValueError(&#x27;GT must match RGB dimensions, with values 0/1 or 0/255.&#x27;)
+    if not np.any(gt):
+        raise ValueError(&#x27;Empty GT mask cannot validate a tree skeleton.&#x27;)
+    return gt &gt; 0</code></pre></details></section><section id="compare_with_gt"><h2>compare_with_gt</h2><p>Evaluate foreground overlap and skeleton proximity.</p><pre class="signature">compare_with_gt(mask, skeleton, gt)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>mask</td><td>bool ndarray (H,W)</td><td>Predicted foreground.</td></tr><tr><td>skeleton</td><td>bool ndarray (H,W)</td><td>Predicted skeleton.</td></tr><tr><td>gt</td><td>bool ndarray (H,W) or None</td><td>Nonempty aligned reference mask, normally from read_ground_truth.</td></tr></tbody></table></div><h4>Returns</h4><p>dict with iou, precision, recall and f1. All are None without GT; otherwise dimensionless scores in [0,1] for valid inputs.</p><h4>Behaviour and side effects</h4><p>Skeletonises the reference and uses cKDTree nearest-neighbour distances. Precision measures predicted points within SKELETON_TOLERANCE pixels of reference; recall reverses the direction. Empty prediction gives zero precision/recall/F1. No unique one-to-one correspondence is enforced.</p><h4>Exceptions and preconditions</h4><p>No custom validation of shapes or empty reference. Direct callers must respect the contract. Missing GT produces blanks when written to CSV, not zero error.</p><h4>Example</h4><pre>scores = compare_with_gt(mask, skeleton, gt)</pre><details><summary>View exact source · lines 215–234</summary><pre><code>def compare_with_gt(mask, skeleton, gt):
+    &quot;&quot;&quot;Return mask IoU and centreline precision/recall/F1 within a pixel tolerance.
+
+    Reference centreline is derived from the GT region mask. These scores assess
+    2D agreement with the annotated region, not biological branch-axis accuracy.
+    &quot;&quot;&quot;
+    if gt is None:
+        return dict(iou=None, precision=None, recall=None, f1=None)
+    union = np.count_nonzero(mask | gt)
+    iou = np.count_nonzero(mask &amp; gt) / union
+    predicted = np.argwhere(skeleton)
+    reference = np.argwhere(skeletonise(gt))
+    if len(predicted) == 0:
+        return dict(iou=iou, precision=0., recall=0., f1=0.)
+    distance_p = cKDTree(reference).query(predicted)[0]
+    distance_g = cKDTree(predicted).query(reference)[0]
+    precision = np.mean(distance_p &lt;= SKELETON_TOLERANCE)
+    recall = np.mean(distance_g &lt;= SKELETON_TOLERANCE)
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.
+    return dict(iou=float(iou), precision=float(precision), recall=float(recall), f1=float(f1))</code></pre></details></section><section id="save_figures"><h2>save_figures</h2><p>Save a three-panel RGB, mask and skeleton-overlay comparison.</p><pre class="signature">save_figures(rgb, mask, skeleton, output, filename)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>rgb</td><td>float ndarray (H,W,3)</td><td>Normalised RGB image.</td></tr><tr><td>mask</td><td>bool ndarray (H,W)</td><td>Foreground to display.</td></tr><tr><td>skeleton</td><td>bool ndarray (H,W)</td><td>Skeleton displayed as red points.</td></tr><tr><td>output</td><td>Path</td><td>Existing run directory with a comparisons child.</td></tr><tr><td>filename</td><td>str</td><td>Safe filename stem without extension.</td></tr></tbody></table></div><h4>Returns</h4><p>None.</p><h4>Behaviour and side effects</h4><p>Writes comparisons/&lt;filename&gt;.png at 140 dpi and closes the figure after a successful save. Uses a noninteractive Matplotlib backend. Does not create output directories itself.</p><h4>Exceptions and preconditions</h4><p>Filesystem/plotting errors may propagate. Caller should provide a plain safe filename stem.</p><h4>Example</h4><pre>save_figures(rgb, mask, skeleton, out, &quot;example_regression_depth&quot;)</pre><details><summary>View exact source · lines 237–248</summary><pre><code>def save_figures(rgb, mask, skeleton, output, filename):
+    &quot;&quot;&quot;Save uniquely named plots into shared folders for this entire run.&quot;&quot;&quot;
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+    axes[0].imshow(rgb); axes[0].set_title(&#x27;RGB image&#x27;)
+    axes[1].imshow(mask, cmap=&#x27;gray&#x27;); axes[1].set_title(&#x27;Estimated foreground mask&#x27;)
+    axes[2].imshow(rgb)
+    v, u = np.nonzero(skeleton)
+    axes[2].scatter(u, v, s=1, color=&#x27;red&#x27;); axes[2].set_title(&#x27;Estimated skeleton&#x27;)
+    for ax in axes:
+        ax.axis(&#x27;off&#x27;)
+    fig.suptitle(filename)
+    fig.tight_layout(); fig.savefig(output / &#x27;comparisons&#x27; / (filename + &#x27;.png&#x27;), dpi=140); plt.close(fig)</code></pre></details></section><section id="write_table"><h2>write_table</h2><p>Write records to a CSV file.</p><pre class="signature">write_table(path, rows)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>path</td><td>str or Path</td><td>Destination CSV; parent must exist.</td></tr><tr><td>rows</td><td>list[dict]</td><td>Consistent dictionary keys across records.</td></tr></tbody></table></div><h4>Returns</h4><p>None.</p><h4>Behaviour and side effects</h4><p>Uses the first row’s keys as columns, UTF-8 encoding and csv.DictWriter. Overwrites the destination. Empty rows cause no write; an existing file is not deleted. None values become empty cells.</p><h4>Exceptions and preconditions</h4><p>OSError for write failures; ValueError for unexpected dictionary fields.</p><h4>Example</h4><pre>write_table(out / &quot;scores.csv&quot;, [scores])</pre><details><summary>View exact source · lines 251–256</summary><pre><code>def write_table(path, rows):
+    &quot;&quot;&quot;Save a list of dictionaries to CSV, with missing scores left blank.&quot;&quot;&quot;
+    if rows:
+        with open(path, &#x27;w&#x27;, newline=&#x27;&#x27;, encoding=&#x27;utf-8&#x27;) as file:
+            writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+            writer.writeheader(); writer.writerows(rows)</code></pre></details></section><section id="check_calculations"><h2>check_calculations</h2><p>Run small synthetic verification checks.</p><pre class="signature">check_calculations()</pre><p><b>Parameters:</b> none.</p><h4>Returns</h4><p>str: success description, if all checks pass.</p><h4>Behaviour and side effects</h4><p>Checks known linear coefficients (30,10), synthetic trunk IoU &gt; 0.99, all-missing depth, connected/idempotent thinning and perfect-match metrics. Uses the current global settings, so deliberate setting changes may invalidate the synthetic fixture. These checks do not establish real-tree accuracy.</p><h4>Exceptions and preconditions</h4><p>AssertionError if a check fails; numerical/image-processing errors can propagate. Python -O disables ordinary assert statements and should not be used for verification.</p><h4>Example</h4><pre>print(check_calculations())</pre><details><summary>View exact source · lines 259–285</summary><pre><code>def check_calculations():
+    &quot;&quot;&quot;Verify known regression coefficients and synthetic foreground recovery.
+
+    Synthetic checks verify implementation under the model assumptions;
+    they do not validate performance on real trees.
+    &quot;&quot;&quot;
+    y = np.linspace(-1., 1., 80)
+    depth = np.repeat((30 + 10*y)[:, None], 100, axis=1)
+    truth = np.zeros(depth.shape, bool); truth[5:75, 46:54] = True
+    depth[truth] += 60
+    model = fit_depth_background(depth)
+    np.testing.assert_allclose([model[2][&#x27;intercept&#x27;], model[2][&#x27;slope&#x27;]], [30, 10], atol=1e-10)
+    recovered = depth_tree(depth, model=model)
+    assert np.count_nonzero(recovered &amp; truth) / np.count_nonzero(recovered | truth) &gt; .99
+    missing = np.full((20, 20), np.nan)
+    assert fit_depth_background(missing)[2][&#x27;fit_status&#x27;] == &#x27;insufficient_dense_rows&#x27;
+    assert not depth_tree(missing).any()
+    mask = np.zeros((20, 20), bool); mask[2:18, 8:12] = True
+    centre = skeletonise(mask)
+    assert ndimage.label(centre, structure=np.ones((3, 3)))[1] == 1
+    assert centre.sum() &lt; mask.sum()
+    np.testing.assert_array_equal(skeletonise(centre), centre)
+    scores = compare_with_gt(mask, centre, mask)
+    assert scores[&#x27;iou&#x27;] == 1 and scores[&#x27;f1&#x27;] == 1
+    return (&#x27;Passed: known linear coefficients; synthetic trunk recovery; missing depth; &#x27;
+            &#x27;connected/idempotent thinning; perfect-match metrics.\n&#x27;
+            &#x27;Synthetic verification is not real-tree validation.\n&#x27;)</code></pre></details></section><section id="choose_folder"><h2>choose_folder</h2><p>Open a native directory-selection dialog.</p><pre class="signature">choose_folder(title)</pre><div class="tablewrap"><table><thead><tr><th>Parameter</th><th>Type / default</th><th>Description</th></tr></thead><tbody><tr><td>title</td><td>str</td><td>Dialog title shown to the user.</td></tr></tbody></table></div><h4>Returns</h4><p>str: selected directory, or an empty string on cancellation.</p><h4>Behaviour and side effects</h4><p>Imports Tkinter lazily, creates a hidden topmost root and destroys it after the dialog. Requires a graphical desktop; it cannot run unattended in a headless environment.</p><h4>Exceptions and preconditions</h4><p>ImportError if Tkinter is unavailable; tkinter.TclError for display/Tk failures.</p><h4>Example</h4><pre>folder = choose_folder(&quot;Choose photo folder&quot;)</pre><details><summary>View exact source · lines 289–303</summary><pre><code>def choose_folder(title):
+    &quot;&quot;&quot;Open a folder picker; return an empty string on cancellation.&quot;&quot;&quot;
+    import tkinter as tk
+    from tkinter import filedialog
+    window = tk.Tk()
+    window.withdraw()
+    window.attributes(&#x27;-topmost&#x27;, True)
+    try:
+        folder = filedialog.askdirectory(
+            parent=window,
+            title=title,
+            mustexist=True)
+    finally:
+        window.destroy()
+    return folder</code></pre></details></section><section id="main"><h2>main</h2><p>Coordinate folder selection, checks, processing, sensitivity and file export.</p><pre class="signature">main()</pre><p><b>Parameters:</b> none.</p><h4>Returns</h4><p>None; writes outputs and prints progress.</p><h4>Behaviour and side effects</h4><p>Selects input folder, prefers its Dataset child if present, finds/sorts pairs (FIRST_PREVIEW first), applies MAX_PAIRS, then asks for results folder. Runs baseline and regression_depth for every pair; applies GT_FILES and TEST_TREES. Creates a timestamped output folder. See workflow and output contract below.</p><h4>Exceptions and preconditions</h4><p>Cancellation returns without processing. Invalid/missing input pairs raise ValueError. Per-observation ValueError/OSError are recorded and processing continues; setup failures, AssertionError, Tkinter errors and solver LinAlgError are not generally caught.</p><h4>Example</h4><pre>if __name__ == &quot;__main__&quot;:
+    main()</pre><details><summary>View exact source · lines 306–442</summary><pre><code>def main():
+    &quot;&quot;&quot;Run all paired images, compare two methods and save report-ready evidence.&quot;&quot;&quot;
+    folder = choose_folder(&#x27;Choose the folder containing your RGB and depth photos&#x27;)
+    if not folder:
+        print(&#x27;No folder selected.&#x27;); return
+    folder = Path(folder).resolve()
+    if not folder.is_dir():
+        raise ValueError(&#x27;Choose an existing folder containing the images.&#x27;)
+    # The second folder may repeat the normal images as well as contain GT.
+    # Use Dataset for observations, so duplicate copies are not paired twice.
+    if (folder / &quot;Dataset&quot;).is_dir():
+        gt_folder = folder / &quot;Dataset (With Summer GT)&quot;
+        folder = folder / &quot;Dataset&quot;
+        print(&quot;Using normal observations from:&quot;, folder)
+        if gt_folder.is_dir():
+            print(&quot;Summer GT folder found:&quot;, gt_folder)
+            print(&quot;Set GT_FILES to the actual binary annotations; depth is not GT.&quot;)
+    pairs = find_pairs(folder)
+    print(f&#x27;Total matching pairs found: {len(pairs)}&#x27;)
+    pairs.sort(key=lambda pair: (pair[&#x27;name&#x27;] != FIRST_PREVIEW, pair[&#x27;name&#x27;]))
+    if MAX_PAIRS is not None:
+        pairs = pairs[:MAX_PAIRS]
+    if not pairs:
+        raise ValueError(&#x27;No exact RGB/depth pairs found. Check folder and filename format.&#x27;)
+    results_folder = choose_folder(&#x27;Choose where to save the results&#x27;)
+    if not results_folder:
+        print(&#x27;No results folder selected. Processing cancelled.&#x27;); return
+    out = Path(results_folder).resolve() / datetime.now().strftime(&#x27;%Y%m%d_%H%M%S_%f&#x27;)
+    out.mkdir(parents=True)
+    print(&#x27;Saving results to:&#x27;, out)
+    for folder_name in [&#x27;comparisons&#x27;]:
+        (out / folder_name).mkdir()
+    if SAVE_MASK_IMAGES:
+        (out / &#x27;masks&#x27;).mkdir()
+    (out / &#x27;checks.txt&#x27;).write_text(check_calculations())
+    # Record the actual settings used so a run can be reproduced.
+    settings = dict(folder=str(folder), main_unit_method=&#x27;5.1 Linear Regression&#x27;,
+                    background_model=&#x27;median depth intensity = b0 + b1 * normalised row&#x27;,
+                    invalid_depth_values=INVALID_DEPTH_VALUES, roi=ROI, green_threshold=GREEN_THRESHOLD,
+                    depth_contrast=DEPTH_CONTRAST, sensitivity_contrasts=SENSITIVITY_CONTRASTS,
+                    depth_direction=DEPTH_DIRECTION, dense_row_fraction=DENSE_ROW_FRACTION,
+                    seed_box=SEED_BOX, max_pairs=MAX_PAIRS, first_preview=FIRST_PREVIEW,
+                    max_figure_pairs=MAX_FIGURE_PAIRS, sensitivity_limit=SENSITIVITY_LIMIT,
+                    gt_files=GT_FILES, test_trees=sorted(TEST_TREES), tolerance_px=SKELETON_TOLERANCE)
+    import json
+    (out / &#x27;settings.json&#x27;).write_text(json.dumps(settings, indent=2))
+    results, sensitivity, errors, model_fits = [], [], [], []
+    print(f&#x27;Found {len(pairs)} paired observations.&#x27;)
+    print(&#x27;Running 2D segmentation and skeleton extraction.&#x27;)
+    sensitivity_count = 0
+    for pair_number, pair in enumerate(pairs):
+        print(f&quot;Processing {pair_number + 1}/{len(pairs)}:&quot;, pair[&quot;name&quot;], flush=True)
+        try:
+            rgb, depth = load_images(pair)
+            gt = read_ground_truth(pair[&#x27;name&#x27;], depth.shape)
+            split = &#x27;test&#x27; if pair[&#x27;tree&#x27;] in TEST_TREES else &#x27;development&#x27;
+            model = None
+            for method in [&#x27;baseline&#x27;, &#x27;regression_depth&#x27;]:
+                start = time.perf_counter()
+                if method == &#x27;baseline&#x27;:
+                    mask = segment_tree(rgb)
+                else:
+                    model = fit_depth_background(depth)
+                    model_fits.append(dict(observation=pair[&#x27;name&#x27;], **model[2]))
+                    if model[2][&#x27;fit_status&#x27;] != &#x27;fitted&#x27;:
+                        print(&#x27;  Insufficient background samples: using valid-depth fallback.&#x27;)
+                    mask = depth_tree(depth, DEPTH_CONTRAST, model=model)
+                skeleton = skeletonise(mask)
+                valid_skeleton_pixels = int(np.count_nonzero(skeleton &amp; np.isfinite(depth)))
+                seconds = time.perf_counter() - start  # Exclude GT scoring and plotting.
+                scores = compare_with_gt(mask, skeleton, gt)
+                results.append(dict(tree=pair[&#x27;tree&#x27;], observation=pair[&#x27;name&#x27;], season=pair[&#x27;season&#x27;],
+                                    split=split, method=method, time_s=seconds,
+                                    skeleton_pixels=int(skeleton.sum()), skeleton_pixels_with_depth=valid_skeleton_pixels,
+                                    depth_coverage=valid_skeleton_pixels/int(skeleton.sum()) if skeleton.any() else 0., **scores))
+                filename = pair[&#x27;name&#x27;] + &#x27;_&#x27; + method
+                if SAVE_MASK_IMAGES:
+                    Image.fromarray((mask * 255).astype(&#x27;uint8&#x27;)).save(out / &#x27;masks&#x27; / (filename + &#x27;_mask.png&#x27;))
+                    Image.fromarray((skeleton * 255).astype(&#x27;uint8&#x27;)).save(out / &#x27;masks&#x27; / (filename + &#x27;_skeleton.png&#x27;))
+                if MAX_FIGURE_PAIRS is None or pair_number &lt; MAX_FIGURE_PAIRS:
+                    save_figures(rgb, mask, skeleton, out, filename)
+            # Save progress after each pair in case you interrupt a long run.
+            write_table(out / &#x27;results.csv&#x27;, results)
+            write_table(out / &#x27;regression_models.csv&#x27;, model_fits)
+            # Never tune depth contrast on test trees. Keep the chosen test settings fixed.
+            if split == &#x27;development&#x27; and sensitivity_count &lt; SENSITIVITY_LIMIT:
+                sensitivity_count += 1
+                for contrast in SENSITIVITY_CONTRASTS:
+                    start = time.perf_counter()
+                    mask = depth_tree(depth, contrast, model=model)
+                    sk = skeletonise(mask)
+                    elapsed = time.perf_counter() - start
+                    sensitivity.append(dict(tree=pair[&#x27;tree&#x27;], observation=pair[&#x27;name&#x27;], depth_contrast=contrast,
+                                            foreground_pixels=int(mask.sum()),
+                                            skeleton_pixels=int(sk.sum()), time_s=elapsed,
+                                            **compare_with_gt(mask, sk, gt)))
+        except (ValueError, OSError) as error:
+            errors.append(dict(observation=pair[&#x27;name&#x27;], error=str(error)))
+            print(&#x27;  Could not process:&#x27;, error)
+    write_table(out / &#x27;results.csv&#x27;, results)
+    write_table(out / &#x27;sensitivity.csv&#x27;, sensitivity)
+    write_table(out / &#x27;errors.csv&#x27;, errors)
+    # Average frames within each tree, then average trees: busy trees get no extra weight.
+    summary = []
+    for split in [&#x27;development&#x27;, &#x27;test&#x27;]:
+        for method in [&#x27;baseline&#x27;, &#x27;regression_depth&#x27;]:
+            selected = [r for r in results if r[&#x27;split&#x27;] == split and r[&#x27;method&#x27;] == method]
+            for metric in [&#x27;iou&#x27;, &#x27;f1&#x27;, &#x27;time_s&#x27;, &#x27;depth_coverage&#x27;]:
+                values = []
+                for tree in sorted({r[&#x27;tree&#x27;] for r in selected}):
+                    frame_values = [r[metric] for r in selected if r[&#x27;tree&#x27;] == tree and r[metric] is not None]
+                    if frame_values:
+                        values.append(np.mean(frame_values))
+                if values:
+                    summary.append(dict(split=split, method=method, metric=metric,
+                                        trees=len(values), mean=float(np.mean(values))))
+    write_table(out / &#x27;summary.csv&#x27;, summary)
+    note = (&#x27;Results describe two-dimensional foreground masks and skeletons. Inspect segmentation failures.\n&#x27;
+            &#x27;Depth segmentation assumes a lower-centre trunk and the configured depth encoding.\n&#x27;
+            &#x27;Main unit method: 5.1 Linear Regression, fitted to dense-row median depth intensities.\n&#x27;
+            &#x27;Regression assumes a linear row trend and background-dominated row medians.\n&#x27;
+            &#x27;Inspect regression_models.csv: fit RMSE measures background fit, NOT tree accuracy.\n&#x27;
+            &#x27;Sparse rows keep valid depth; insufficient dense rows trigger a recorded fallback.\n&#x27;
+            &#x27;Real-tree accuracy, including summer wood extraction, is not validated without GT.\n&#x27;
+            &#x27;Blank GT scores mean no annotation was provided, not zero error.\n&#x27;
+            &#x27;Sensitivity uses a limited development subset, not a representative population sample.\n&#x27;
+            &#x27;Without GT, sensitivity measures output changes, not which threshold is most accurate.\n&#x27;
+            &#x27;Sensitivity time_s excludes the cached regression fit; main results include fitting.\n&#x27;
+            &#x27;Do not choose settings using test scores.\n&#x27;
+            &#x27;Timings are single-run compute measurements, not a rigorous performance benchmark.\n&#x27;
+            f&#x27;Failed observations: {len(errors)}. Do not silently omit these from your report.\n&#x27;)
+    if not TEST_TREES:
+        note += &#x27;No held-out trees were declared. Results are exploratory, not generalisation evidence.\n&#x27;
+    (out / &#x27;READ_RESULTS.txt&#x27;).write_text(note)
+    print(f&#x27;Finished. Results saved in: {out.resolve()}&#x27;)
+    print(&#x27;All comparison images are together in:&#x27;, (out / &#x27;comparisons&#x27;).resolve())
+    print(&#x27;See results.csv and summary.csv for the numerical results.&#x27;)</code></pre></details></section><section id="maintenance"><h2>Keeping documentation in sync</h2><p>This is a self-contained static HTML reference: no internet connection, JavaScript or external style files are required. Save it as <code>docs/index.html</code> in the repository and open it in a browser to read it. Retain the source file in the repository as well.</p><p>Update the descriptions whenever settings, signatures or behaviour change. The embedded excerpts represent this upload only. Compare the SHA-256 value below to confirm the source revision.</p><pre>Source: Tree_Project_2D(1).py
+SHA-256: ea9c100d04058234f875caf9cdbfd52f5943dd47e77c7b80ffa88a3ec95cc20d</pre><p>Prepared with AI assistance from source inspection. No new dataset accuracy results are claimed by this documentation.</p></section></main></body></html>
